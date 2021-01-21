@@ -91,6 +91,7 @@ func getPages() int {
 
 func writeJobs(jobs []extractedJob) {
 	fmt.Println("Make csv file..")
+	c := make(chan []string)
 	file, err := os.Create("jobs.csv")
 	checkErr(err)
 
@@ -98,16 +99,23 @@ func writeJobs(jobs []extractedJob) {
 	defer w.Flush() // 함수가 끝날때 데이터를 입력
 
 	headers := []string{"Link", "Title", "Location", "Salary", "Summary"}
-	wErr := w.Write(headers)
-	checkErr(wErr)
+	hwErr := w.Write(headers)
+	checkErr(hwErr)
 
 	for _, job := range jobs {
-		jobSlice := []string{viewJobURL + job.id, job.title, job.location, job.salary, job.summary}
-		jwErr := w.Write(jobSlice)
+		go makeJobSlice(job, c)
+	}
+
+	for range jobs {
+		jwErr := w.Write(<-c)
 		checkErr(jwErr)
 	}
 
 	fmt.Println("Done. Extracted ", len(jobs))
+}
+
+func makeJobSlice(job extractedJob, c chan<- []string) {
+	c <- []string{viewJobURL + job.id, job.title, job.location, job.salary, job.summary}
 }
 
 func cleanString(str string) string {
